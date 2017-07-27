@@ -169,8 +169,9 @@ func TestWorkerPool_Wait_Success(t *testing.T) {
 	_ = wp.Start(ctx)
 
 	err := wp.Wait()
-	if err != nil {
-		t.Errorf("Expected nil error. Got %q.", err)
+	if err != context.DeadlineExceeded {
+		t.Errorf("Expected context.DeadlineExceeded error. Got %q.",
+			err)
 	}
 }
 
@@ -188,7 +189,10 @@ func TestWorkerPool_CleanupOnCancel(t *testing.T) {
 
 	cancelFunc()
 
-	_ = wp.Wait()
+	err := wp.Wait()
+	if err != context.Canceled {
+		t.Errorf("Expected context.Canceled error. Got %q.", err)
+	}
 
 	if wp.started {
 		t.Errorf("Expected worker pool to be stopped.")
@@ -265,5 +269,8 @@ func TestWorkerPool_WorkerFuncSuccess(t *testing.T) {
 	// Clean shutdown.
 	close(ic)
 
-	wp.Wait()
+	err := wp.Wait()
+	if err != nil {
+		t.Errorf("Expected nil error. Got %q.", err)
+	}
 }

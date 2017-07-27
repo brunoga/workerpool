@@ -34,6 +34,7 @@ type WorkerPool struct {
 	inputChannel  <-chan interface{}
 	outputChannel chan interface{}
 	waitChannel   chan struct{}
+	waitError     error
 	started       bool
 }
 
@@ -51,6 +52,7 @@ func NewWorkerPool(workerFunc WorkerFunc, numWorkers int) (*WorkerPool, error) {
 		numWorkers,
 		sync.WaitGroup{},
 		sync.Mutex{},
+		nil,
 		nil,
 		nil,
 		nil,
@@ -119,7 +121,10 @@ func (wp *WorkerPool) Wait() error {
 
 	<-wp.waitChannel
 
-	return nil
+	err := wp.waitError
+	wp.waitError = nil
+
+	return err
 }
 
 func (wp *WorkerPool) startWorkerLoops(ctx context.Context) {
@@ -170,6 +175,7 @@ WORKERLOOP:
 			}
 		case <-ctx.Done():
 			// Context is done. Exit.
+			wp.waitError = ctx.Err()
 			break WORKERLOOP
 		}
 	}
