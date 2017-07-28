@@ -45,7 +45,9 @@ func generateNumbers(maxNumber uint64, r *rand.Rand) <-chan interface{} {
 }
 
 // isPrime is a workerpool.WorkerFunc implementation that expects an uint64
-// number as input and determines if it is a prime number or not. It returns the// original uint64 number and a nil error on success and nil and a non-nil error// on failure (including when the number is not prime).
+// number as input and determines if it is a prime number or not. It returns the
+// original uint64 number and a nil error on success and nil and a non-nil error
+// on failure (including when the number is not prime).
 func isPrime(i interface{}) (interface{}, error) {
 	n, ok := i.(uint64)
 	if !ok {
