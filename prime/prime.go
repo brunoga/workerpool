@@ -74,7 +74,7 @@ func main() {
 	flag.Parse()
 
 	// Start a WorkerPool for the isPrime function.
-	workerPool, err := workerpool.NewWorkerPool(isPrime, *flagNumWorkers)
+	workerPool, err := workerpool.New(isPrime, *flagNumWorkers)
 	if err != nil {
 		panic(err)
 	}

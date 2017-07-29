@@ -16,13 +16,24 @@ var (
 	ErrNotStarted        = errors.New("worker pool not started")
 )
 
+// WorkerFunc is the function type that is used by each worker to process items.
+// It receives the item to be processed (as an interface{}) and the context the
+// worke rpool was started with (to allow passing extra data to the worker
+// function if needed. WorkerFunc implementations should return the result of
+// processing te input item (also as an in terface{}) and a nil error on success
+// and a nil result and non-nil error on failure.
 type WorkerFunc func(interface{}, context.Context) (interface{}, error)
 
+// WorkerError is the error sent through te output channel when there is an
+// error processinmg an item. It includes the input Item that had an error
+// during processing and the error returned from the WorkerFunc.
 type WorkerError struct {
 	Item  interface{}
 	Error error
 }
 
+// WorkerPool implements a worker pool for executing the same task over many
+// items in parallel.
 type WorkerPool struct {
 	workerFunc WorkerFunc
 
@@ -38,7 +49,9 @@ type WorkerPool struct {
 	started       bool
 }
 
-func NewWorkerPool(workerFunc WorkerFunc, numWorkers int) (*WorkerPool, error) {
+// New returns a new WorkerPool instance taht will use the given workerFunc to
+// process input items and will have numWorkers workers.
+func New(workerFunc WorkerFunc, numWorkers int) (*WorkerPool, error) {
 	if workerFunc == nil {
 		return nil, ErrNilWorkerFunc
 	}
@@ -60,6 +73,8 @@ func NewWorkerPool(workerFunc WorkerFunc, numWorkers int) (*WorkerPool, error) {
 	}, nil
 }
 
+// GetOutputChannel returns the channel where the result of processing input
+// items will be sent to. This must be called at least once before Start().
 func (wp *WorkerPool) GetOutputChannel() <-chan interface{} {
 	wp.m.Lock()
 	defer wp.m.Unlock()
@@ -71,6 +86,8 @@ func (wp *WorkerPool) GetOutputChannel() <-chan interface{} {
 	return wp.outputChannel
 }
 
+// SetInputChannel sets the channel where workers will read items from. This
+// must be called before Start().
 func (wp *WorkerPool) SetInputChannel(inputChannel <-chan interface{}) error {
 	wp.m.Lock()
 	defer wp.m.Unlock()
@@ -83,6 +100,10 @@ func (wp *WorkerPool) SetInputChannel(inputChannel <-chan interface{}) error {
 
 	return nil
 }
+
+// Start starts workers in the worker pool with the given context. The context
+// can be used to stop workers with an explicit cancelation or with a timeout.
+// The context can also be used to pass required data to the workers.
 func (wp *WorkerPool) Start(ctx context.Context) error {
 	wp.m.Lock()
 	defer wp.m.Unlock()
@@ -108,6 +129,9 @@ func (wp *WorkerPool) Start(ctx context.Context) error {
 	return nil
 }
 
+// Wait blocks until all workers complete their jobs. It returns an error
+// indication the reason workers finished (clean termination, deadline exceeded
+// or cancelation.
 func (wp *WorkerPool) Wait() error {
 	wp.m.Lock()
 
