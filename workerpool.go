@@ -16,7 +16,7 @@ var (
 	ErrNotStarted        = errors.New("worker pool not started")
 )
 
-type WorkerFunc func(interface{}) (interface{}, error)
+type WorkerFunc func(interface{}, context.Context) (interface{}, error)
 
 type WorkerError struct {
 	Item  interface{}
@@ -154,7 +154,7 @@ WORKERLOOP:
 		select {
 		case inputItem, ok := <-wp.inputChannel:
 			if ok {
-				outputItem, err := wp.workerFunc(inputItem)
+				outputItem, err := wp.workerFunc(inputItem, ctx)
 				if err != nil {
 					// WorkerFunc returned error. Send
 					// WorkerError to outputChannel.

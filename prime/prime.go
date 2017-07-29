@@ -48,7 +48,7 @@ func generateNumbers(maxNumber uint64, r *rand.Rand) <-chan interface{} {
 // number as input and determines if it is a prime number or not. It returns the
 // original uint64 number and a nil error on success and nil and a non-nil error
 // on failure (including when the number is not prime).
-func isPrime(i interface{}) (interface{}, error) {
+func isPrime(i interface{}, ctx context.Context) (interface{}, error) {
 	n, ok := i.(uint64)
 	if !ok {
 		return nil, fmt.Errorf("expected uint64. Got %t", i)

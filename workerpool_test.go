@@ -22,7 +22,7 @@ func TestWorkerPool_NewWorkerPool_NilWorkerFunc(t *testing.T) {
 
 func TestWorkerPool_NewWorkerPool_InvalidNumWorkers(t *testing.T) {
 	wp, err := NewWorkerPool(
-		func(interface{}) (interface{}, error) {
+		func(interface{}, context.Context) (interface{}, error) {
 			return nil, nil
 		}, 0)
 
@@ -38,7 +38,7 @@ func TestWorkerPool_NewWorkerPool_InvalidNumWorkers(t *testing.T) {
 
 func TestWorkerPool_NewWorkerPool_Success(t *testing.T) {
 	wp, err := NewWorkerPool(
-		func(interface{}) (interface{}, error) {
+		func(interface{}, context.Context) (interface{}, error) {
 			return nil, nil
 		}, 1)
 
@@ -53,7 +53,7 @@ func TestWorkerPool_NewWorkerPool_Success(t *testing.T) {
 
 func TestWorkerPool_GetOutputChannel(t *testing.T) {
 	wp, _ := NewWorkerPool(
-		func(interface{}) (interface{}, error) {
+		func(interface{}, context.Context) (interface{}, error) {
 			return nil, nil
 		}, 1)
 
@@ -70,7 +70,7 @@ func TestWorkerPool_GetOutputChannel(t *testing.T) {
 }
 func TestWorkerPool_SetInputChannel_NilInputChannel(t *testing.T) {
 	wp, _ := NewWorkerPool(
-		func(interface{}) (interface{}, error) {
+		func(interface{}, context.Context) (interface{}, error) {
 			return nil, nil
 		}, 1)
 
@@ -87,7 +87,7 @@ func TestWorkerPool_SetInputChannel_NilInputChannel(t *testing.T) {
 
 func TestWorkerPool_SetInputChannel(t *testing.T) {
 	wp, _ := NewWorkerPool(
-		func(interface{}) (interface{}, error) {
+		func(interface{}, context.Context) (interface{}, error) {
 			return nil, nil
 		}, 1)
 
@@ -110,7 +110,7 @@ func TestWorkerPool_SetInputChannel(t *testing.T) {
 
 func TestWorkerPool_Start_NilOutputChannel(t *testing.T) {
 	wp, _ := NewWorkerPool(
-		func(interface{}) (interface{}, error) {
+		func(interface{}, context.Context) (interface{}, error) {
 			return nil, nil
 		}, 1)
 	_ = wp.SetInputChannel(make(chan interface{}))
@@ -123,7 +123,7 @@ func TestWorkerPool_Start_NilOutputChannel(t *testing.T) {
 
 func TestWorkerPool_Start_AlreadyStarted(t *testing.T) {
 	wp, _ := NewWorkerPool(
-		func(interface{}) (interface{}, error) {
+		func(interface{}, context.Context) (interface{}, error) {
 			return nil, nil
 		}, 1)
 	_ = wp.SetInputChannel(make(chan interface{}))
@@ -143,7 +143,7 @@ func TestWorkerPool_Start_AlreadyStarted(t *testing.T) {
 
 func TestWorkerPool_Wait_NotStarted(t *testing.T) {
 	wp, _ := NewWorkerPool(
-		func(interface{}) (interface{}, error) {
+		func(interface{}, context.Context) (interface{}, error) {
 			return nil, nil
 		}, 1)
 	_ = wp.SetInputChannel(make(chan interface{}))
@@ -157,7 +157,7 @@ func TestWorkerPool_Wait_NotStarted(t *testing.T) {
 
 func TestWorkerPool_Wait_Success(t *testing.T) {
 	wp, _ := NewWorkerPool(
-		func(interface{}) (interface{}, error) {
+		func(interface{}, context.Context) (interface{}, error) {
 			return nil, nil
 		}, 1)
 	_ = wp.SetInputChannel(make(chan interface{}))
@@ -177,7 +177,7 @@ func TestWorkerPool_Wait_Success(t *testing.T) {
 
 func TestWorkerPool_CleanupOnCancel(t *testing.T) {
 	wp, _ := NewWorkerPool(
-		func(interface{}) (interface{}, error) {
+		func(interface{}, context.Context) (interface{}, error) {
 			return nil, nil
 		}, 1)
 	_ = wp.SetInputChannel(make(chan interface{}))
@@ -205,7 +205,7 @@ func TestWorkerPool_CleanupOnCancel(t *testing.T) {
 
 func TestWorkerPool_WorkerFuncError(t *testing.T) {
 	wp, _ := NewWorkerPool(
-		func(interface{}) (interface{}, error) {
+		func(interface{}, context.Context) (interface{}, error) {
 			return nil, fmt.Errorf("error test")
 		}, 1)
 
@@ -240,7 +240,7 @@ func TestWorkerPool_WorkerFuncError(t *testing.T) {
 
 func TestWorkerPool_WorkerFuncSuccess(t *testing.T) {
 	wp, _ := NewWorkerPool(
-		func(interface{}) (interface{}, error) {
+		func(interface{}, context.Context) (interface{}, error) {
 			return "test result", nil
 		}, 1)
 
