@@ -194,6 +194,10 @@ func TestWorkerPool_CleanupOnCancel(t *testing.T) {
 		t.Errorf("Expected context.Canceled error. Got %q.", err)
 	}
 
+	// We are going to look directly at the WorkerPool attributes, so we
+	// have to Lock to avoid data races.
+	wp.m.Lock()
+
 	if wp.started {
 		t.Errorf("Expected worker pool to be stopped.")
 	}
@@ -201,6 +205,8 @@ func TestWorkerPool_CleanupOnCancel(t *testing.T) {
 	if wp.outputChannel != nil {
 		t.Errorf("Expected outputChannel to be nil.")
 	}
+
+	wp.m.Unlock()
 }
 
 func TestWorkerPool_WorkerFuncError(t *testing.T) {

@@ -44,9 +44,11 @@ type WorkerPool struct {
 	m             sync.Mutex
 	inputChannel  <-chan interface{}
 	outputChannel chan interface{}
-	waitChannel   chan struct{}
-	waitError     error
 	started       bool
+
+	mw          sync.Mutex
+	waitChannel chan struct{}
+	waitError   error
 }
 
 // New returns a new WorkerPool instance taht will use the given workerFunc to
@@ -67,9 +69,10 @@ func New(workerFunc WorkerFunc, numWorkers int) (*WorkerPool, error) {
 		sync.Mutex{},
 		nil,
 		nil,
-		nil,
-		nil,
 		false,
+		sync.Mutex{},
+		nil,
+		nil,
 	}, nil
 }
 
@@ -120,7 +123,9 @@ func (wp *WorkerPool) Start(ctx context.Context) error {
 		return ErrNilInputChannel
 	}
 
+	wp.mw.Lock()
 	wp.waitChannel = make(chan struct{})
+	wp.mw.Unlock()
 
 	go wp.startWorkerLoops(ctx)
 
@@ -130,8 +135,8 @@ func (wp *WorkerPool) Start(ctx context.Context) error {
 }
 
 // Wait blocks until all workers complete their jobs. It returns an error
-// indication the reason workers finished (clean termination, deadline exceeded
-// or cancelation.
+// indicating the reason workers finished (clean termination, deadline exceeded
+// or cancelation).
 func (wp *WorkerPool) Wait() error {
 	wp.m.Lock()
 
@@ -143,10 +148,14 @@ func (wp *WorkerPool) Wait() error {
 
 	wp.m.Unlock()
 
+	wp.mw.Lock()
+
 	<-wp.waitChannel
 
 	err := wp.waitError
 	wp.waitError = nil
+
+	wp.mw.Unlock()
 
 	return err
 }
@@ -162,14 +171,18 @@ func (wp *WorkerPool) startWorkerLoops(ctx context.Context) {
 	wp.m.Lock()
 
 	close(wp.outputChannel)
-	wp.outputChannel = nil
-
 	close(wp.waitChannel)
-	wp.waitChannel = nil
 
 	wp.started = false
+	wp.outputChannel = nil
 
 	wp.m.Unlock()
+
+	wp.mw.Lock()
+
+	wp.waitChannel = nil
+
+	wp.mw.Unlock()
 }
 
 func (wp *WorkerPool) workerLoop(ctx context.Context) {
