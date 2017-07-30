@@ -168,6 +168,8 @@ func (wp *WorkerPool) startWorkerLoops(ctx context.Context) {
 
 	wp.wg.Wait()
 
+	wp.waitError = ctx.Err()
+
 	wp.m.Lock()
 
 	close(wp.outputChannel)
@@ -179,9 +181,7 @@ func (wp *WorkerPool) startWorkerLoops(ctx context.Context) {
 	wp.m.Unlock()
 
 	wp.mw.Lock()
-
 	wp.waitChannel = nil
-
 	wp.mw.Unlock()
 }
 
@@ -212,7 +212,6 @@ WORKERLOOP:
 			}
 		case <-ctx.Done():
 			// Context is done. Exit.
-			wp.waitError = ctx.Err()
 			break WORKERLOOP
 		}
 	}
