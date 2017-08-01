@@ -125,6 +125,7 @@ func (wp *WorkerPool) Start(ctx context.Context) error {
 
 	wp.mw.Lock()
 	wp.waitChannel = make(chan struct{})
+	wp.waitError = nil
 	wp.mw.Unlock()
 
 	go wp.startWorkerLoops(ctx)
@@ -150,14 +151,13 @@ func (wp *WorkerPool) Wait() error {
 
 	wp.mw.Lock()
 
-	<-wp.waitChannel
-
-	err := wp.waitError
-	wp.waitError = nil
+	if wp.waitChannel != nil {
+		<-wp.waitChannel
+	}
 
 	wp.mw.Unlock()
 
-	return err
+	return wp.waitError
 }
 
 func (wp *WorkerPool) startWorkerLoops(ctx context.Context) {
