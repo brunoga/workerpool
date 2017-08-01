@@ -121,6 +121,19 @@ func TestWorkerPool_Start_NilOutputChannel(t *testing.T) {
 	}
 }
 
+func TestWorkerPool_Start_NilInputChannel(t *testing.T) {
+	wp, _ := New(
+		func(interface{}, context.Context) (interface{}, error) {
+			return nil, nil
+		}, 1)
+	_ = wp.GetOutputChannel()
+
+	err := wp.Start(context.Background())
+	if err != ErrNilInputChannel {
+		t.Errorf("Expected ErrNewInputChannel error. Got %q.", err)
+	}
+}
+
 func TestWorkerPool_Start_AlreadyStarted(t *testing.T) {
 	wp, _ := New(
 		func(interface{}, context.Context) (interface{}, error) {
