@@ -51,7 +51,7 @@ type WorkerPool struct {
 	waitError   error
 }
 
-// New returns a new WorkerPool instance taht will use the given workerFunc to
+// New returns a new WorkerPool instance that will use the given workerFunc to
 // process input items and will have numWorkers workers.
 func New(workerFunc WorkerFunc, numWorkers int) (*WorkerPool, error) {
 	if workerFunc == nil {
