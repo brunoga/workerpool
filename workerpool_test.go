@@ -176,7 +176,8 @@ func TestWorkerPool_Wait_Success(t *testing.T) {
 	_ = wp.SetInputChannel(make(chan interface{}))
 	_ = wp.GetOutputChannel()
 
-	ctx, cancelFunc := context.WithTimeout(context.Background(), 1*time.Millisecond)
+	ctx, cancelFunc := context.WithTimeout(context.Background(),
+		1*time.Millisecond)
 	defer cancelFunc()
 
 	_ = wp.Start(ctx)
@@ -260,8 +261,9 @@ func TestWorkerPool_WorkerFuncError(t *testing.T) {
 func TestWorkerPool_WorkerFuncSuccess(t *testing.T) {
 	wp, _ := New(
 		func(interface{}, context.Context) (interface{}, error) {
+			time.Sleep(1 * time.Millisecond)
 			return "test result", nil
-		}, 1)
+		}, 10)
 
 	ic := make(chan interface{})
 	_ = wp.SetInputChannel(ic)
@@ -271,19 +273,24 @@ func TestWorkerPool_WorkerFuncSuccess(t *testing.T) {
 	_ = wp.Start(context.Background())
 
 	go func() {
-		result := <-oc
+		for i := 0; i < 10; i++ {
+			result := <-oc
 
-		r, ok := result.(string)
-		if !ok {
-			t.Errorf("Expected string. Got %t.", result)
-		}
+			r, ok := result.(string)
+			if !ok {
+				t.Errorf("Expected string. Got %t.", result)
+			}
 
-		if r != "test result" {
-			t.Errorf("Expected result \"test result\". Got %q.", r)
+			if r != "test result" {
+				t.Errorf("Expected result \"test result\". "+
+					"Got %q.", r)
+			}
 		}
 	}()
 
-	ic <- struct{}{}
+	for i := 0; i < 10; i++ {
+		ic <- struct{}{}
+	}
 
 	// Clean shutdown.
 	close(ic)
