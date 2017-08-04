@@ -54,15 +54,16 @@ func isPrime(i interface{}, ctx context.Context) (interface{}, error) {
 		return nil, fmt.Errorf("expected uint64. Got %t", i)
 	}
 
-	// Optimization. We can only check the square root of the given number.
+	// Optimization. Only need to check divisors up to the suqare root of
+	// the given number.
 	n2 := uint64(math.Ceil(math.Sqrt(float64(n))))
 
 	if n2 < 2 {
 		return nil, fmt.Errorf("not prime")
 	}
 
-	for divisor := uint64(2); divisor < n2; divisor++ {
-		if (n2 % divisor) == 0 {
+	for divisor := uint64(2); divisor <= n2; divisor++ {
+		if (n % divisor) == 0 {
 			return nil, fmt.Errorf("not prime")
 		}
 	}
