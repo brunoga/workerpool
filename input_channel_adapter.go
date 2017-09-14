@@ -10,9 +10,9 @@ var (
 	ErrNotReadableChannel = errors.New("not a readable channel")
 )
 
-// InputChannelAdapter expects a readable chan of any value as input and returns
-// a readable channel of interface values. Items are copied from the input
-// channel to the output channel via an internale goroutine.
+// InputChannelAdapter expects a readable channel of any value as input and
+// returns a readable channel of interface values. Items are copied from the
+// input channel to the output channel via an internal goroutine.
 func InputChannelAdapter(
 	nonInterfaceChannel interface{}) (<-chan interface{}, error) {
 	// Get type of input channel.

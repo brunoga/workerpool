@@ -18,14 +18,14 @@ var (
 
 // WorkerFunc is the function type that is used by each worker to process items.
 // It receives the item to be processed (as an interface{}) and the context the
-// worke rpool was started with (to allow passing extra data to the worker
-// function if needed. WorkerFunc implementations should return the result of
-// processing te input item (also as an in terface{}) and a nil error on success
-// and a nil result and non-nil error on failure.
+// worker pool was started with (to allow passing extra data to the worker
+// function if needed). WorkerFunc implementations should return the result of
+// processing the input item (also as an in terface{}) and a nil error on
+// success and a nil result and non-nil error on failure.
 type WorkerFunc func(interface{}, context.Context) (interface{}, error)
 
 // WorkerError is the error sent through te output channel when there is an
-// error processinmg an item. It includes the input Item that had an error
+// error processing an item. It includes the input Item that had an error
 // during processing and the error returned from the WorkerFunc.
 type WorkerError struct {
 	Item  interface{}
