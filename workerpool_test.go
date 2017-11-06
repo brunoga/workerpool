@@ -145,6 +145,39 @@ func TestWorkerPool_Start_AlreadyStarted(t *testing.T) {
 	}
 }
 
+func TestWorkerPool_Stop_NotStarted(t *testing.T) {
+	wp, _ := New(
+		func(interface{}, context.Context) (interface{}, error) {
+			return nil, nil
+		}, 2)
+
+	err := wp.Stop()
+	if err != worker.ErrNotStarted {
+		t.Errorf("Expected ErrNotStarted error. Got %v.", err)
+	}
+}
+
+func TestWorker_Stop_Success(t *testing.T) {
+	wp, _ := New(
+		func(interface{}, context.Context) (interface{}, error) {
+			return nil, nil
+		}, 2)
+
+	_, _ = wp.GetOutputChannel()
+	_ = wp.SetInputChannel(make(chan interface{}))
+	_ = wp.Start(context.Background())
+
+	err := wp.Stop()
+	if err != nil {
+		t.Errorf("Expected nil error. Got %v.", err)
+	}
+
+	err = wp.Wait()
+	if err != context.Canceled {
+		t.Errorf("Expected Canceled error. Got %v.", err)
+	}
+}
+
 func TestWorkerPool_Wait_NotStarted(t *testing.T) {
 	wp, _ := New(
 		func(interface{}, context.Context) (interface{}, error) {
