@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"testing"
 	"time"
+
+	"github.com/brunoga/workerpool/worker"
 )
 
 func TestWorkerPool_New_NilWorkerFunc(t *testing.T) {
@@ -14,7 +16,7 @@ func TestWorkerPool_New_NilWorkerFunc(t *testing.T) {
 		t.Errorf("Expected nil WorkerPool.")
 	}
 
-	if err != ErrNilWorkerFunc {
+	if err != worker.ErrNilWorkerFunc {
 		t.Errorf("Expected ErrNilWorkerFunc error. Got %q.", err)
 
 	}
@@ -31,7 +33,7 @@ func TestWorkerPool_New_InvalidNumWorkers(t *testing.T) {
 	}
 
 	if err != ErrInvalidNumWorkers {
-		t.Errorf("Expected ErrInvalidNumWorkers error. Got %q.", err)
+		t.Errorf("Expected ErrInvalidNumWorkers error. Got %v.", err)
 
 	}
 }
@@ -47,7 +49,7 @@ func TestWorkerPool_New_Success(t *testing.T) {
 	}
 
 	if err != nil {
-		t.Errorf("Expected nil error. Got %q.", err)
+		t.Errorf("Expected nil error. Got %v.", err)
 	}
 }
 
@@ -62,7 +64,10 @@ func TestWorkerPool_GetOutputChannel(t *testing.T) {
 			"GetOutputChannel().")
 	}
 
-	c := wp.GetOutputChannel()
+	c, err := wp.GetOutputChannel()
+	if err != nil {
+		t.Errorf("Expected nil error. Got %v.", err)
+	}
 
 	if c != wp.outputChannel {
 		t.Errorf("Internal and returned channels do not match.")
@@ -74,13 +79,8 @@ func TestWorkerPool_SetInputChannel_NilInputChannel(t *testing.T) {
 			return nil, nil
 		}, 1)
 
-	if wp.inputChannel != nil {
-		t.Errorf("Internal input channel was not nil before " +
-			"SetInputChannel().")
-	}
-
 	err := wp.SetInputChannel(nil)
-	if err != ErrNilInputChannel {
+	if err != worker.ErrNilInputChannel {
 		t.Errorf("Expected ErrNilInputChannel error. Got %q.", err)
 	}
 }
@@ -91,20 +91,9 @@ func TestWorkerPool_SetInputChannel(t *testing.T) {
 			return nil, nil
 		}, 1)
 
-	if wp.inputChannel != nil {
-		t.Errorf("Internal input channel was not nil before " +
-			"SetInputChannel().")
-	}
-
-	c := make(chan interface{})
-
-	err := wp.SetInputChannel(c)
+	err := wp.SetInputChannel(make(chan interface{}))
 	if err != nil {
-		t.Errorf("Expected nil error. Got %q.", err)
-	}
-
-	if c != wp.inputChannel {
-		t.Errorf("Internal and given channels do not match.")
+		t.Errorf("Expected nil error. Got %v.", err)
 	}
 }
 
@@ -113,11 +102,12 @@ func TestWorkerPool_Start_NilOutputChannel(t *testing.T) {
 		func(interface{}, context.Context) (interface{}, error) {
 			return nil, nil
 		}, 1)
+
 	_ = wp.SetInputChannel(make(chan interface{}))
 
 	err := wp.Start(context.Background())
-	if err != ErrNilOutputChannel {
-		t.Errorf("Expected ErrNewOutputChannel error. Got %q.", err)
+	if err != worker.ErrNilOutputChannel {
+		t.Errorf("Expected ErrNilOutputChannel error. Got %v.", err)
 	}
 }
 
@@ -126,11 +116,12 @@ func TestWorkerPool_Start_NilInputChannel(t *testing.T) {
 		func(interface{}, context.Context) (interface{}, error) {
 			return nil, nil
 		}, 1)
-	_ = wp.GetOutputChannel()
+
+	_, _ = wp.GetOutputChannel()
 
 	err := wp.Start(context.Background())
-	if err != ErrNilInputChannel {
-		t.Errorf("Expected ErrNewInputChannel error. Got %q.", err)
+	if err != worker.ErrNilInputChannel {
+		t.Errorf("Expected ErrNilInputChannel error. Got %v.", err)
 	}
 }
 
@@ -140,7 +131,7 @@ func TestWorkerPool_Start_AlreadyStarted(t *testing.T) {
 			return nil, nil
 		}, 1)
 	_ = wp.SetInputChannel(make(chan interface{}))
-	_ = wp.GetOutputChannel()
+	_, _ = wp.GetOutputChannel()
 
 	// Do not leak goroutines.
 	ctx, cancelFunc := context.WithCancel(context.Background())
@@ -149,7 +140,7 @@ func TestWorkerPool_Start_AlreadyStarted(t *testing.T) {
 	_ = wp.Start(ctx)
 
 	err := wp.Start(ctx)
-	if err != ErrAlreadyStarted {
+	if err != worker.ErrAlreadyStarted {
 		t.Errorf("Expected ErrAlreadyStarted error. Got %q.", err)
 	}
 }
@@ -159,11 +150,12 @@ func TestWorkerPool_Wait_NotStarted(t *testing.T) {
 		func(interface{}, context.Context) (interface{}, error) {
 			return nil, nil
 		}, 1)
+
 	_ = wp.SetInputChannel(make(chan interface{}))
-	_ = wp.GetOutputChannel()
+	_, _ = wp.GetOutputChannel()
 
 	err := wp.Wait()
-	if err != ErrNotStarted {
+	if err != worker.ErrNotStarted {
 		t.Errorf("Expected ErrNotStarted error. Got %q.", err)
 	}
 }
@@ -173,8 +165,9 @@ func TestWorkerPool_Wait_Success(t *testing.T) {
 		func(interface{}, context.Context) (interface{}, error) {
 			return nil, nil
 		}, 1)
+
 	_ = wp.SetInputChannel(make(chan interface{}))
-	_ = wp.GetOutputChannel()
+	_, _ = wp.GetOutputChannel()
 
 	ctx, cancelFunc := context.WithTimeout(context.Background(),
 		1*time.Millisecond)
@@ -189,40 +182,6 @@ func TestWorkerPool_Wait_Success(t *testing.T) {
 	}
 }
 
-func TestWorkerPool_CleanupOnCancel(t *testing.T) {
-	wp, _ := New(
-		func(interface{}, context.Context) (interface{}, error) {
-			return nil, nil
-		}, 1)
-	_ = wp.SetInputChannel(make(chan interface{}))
-	_ = wp.GetOutputChannel()
-
-	ctx, cancelFunc := context.WithCancel(context.Background())
-
-	_ = wp.Start(ctx)
-
-	cancelFunc()
-
-	err := wp.Wait()
-	if err != context.Canceled {
-		t.Errorf("Expected context.Canceled error. Got %q.", err)
-	}
-
-	// We are going to look directly at the WorkerPool attributes, so we
-	// have to Lock to avoid data races.
-	wp.m.Lock()
-
-	if wp.started {
-		t.Errorf("Expected worker pool to be stopped.")
-	}
-
-	if wp.outputChannel != nil {
-		t.Errorf("Expected outputChannel to be nil.")
-	}
-
-	wp.m.Unlock()
-}
-
 func TestWorkerPool_WorkerFuncError(t *testing.T) {
 	wp, _ := New(
 		func(interface{}, context.Context) (interface{}, error) {
@@ -232,14 +191,14 @@ func TestWorkerPool_WorkerFuncError(t *testing.T) {
 	ic := make(chan interface{})
 	_ = wp.SetInputChannel(ic)
 
-	oc := wp.GetOutputChannel()
+	oc, _ := wp.GetOutputChannel()
 
 	_ = wp.Start(context.Background())
 
 	go func() {
 		result := <-oc
 
-		we, ok := result.(WorkerError)
+		we, ok := result.(worker.WorkerError)
 		if !ok {
 			t.Errorf("Expected WorkerError. Got %t.", result)
 		}
@@ -268,7 +227,7 @@ func TestWorkerPool_WorkerFuncSuccess(t *testing.T) {
 	ic := make(chan interface{})
 	_ = wp.SetInputChannel(ic)
 
-	oc := wp.GetOutputChannel()
+	oc, _ := wp.GetOutputChannel()
 
 	_ = wp.Start(context.Background())
 
