@@ -102,7 +102,23 @@ func (wp *WorkerPool) Start(ctx context.Context) error {
 		}
 	}
 
-	go wp.waitAndDoCleanup()
+	go wp.waitAndDoCleanup( /*lock=*/ true)
+
+	return nil
+}
+
+func (wp *WorkerPool) Stop() error {
+	wp.m.Lock()
+	defer wp.m.Unlock()
+
+	for _, w := range wp.workers {
+		err := w.Stop()
+		if err != nil {
+			return err
+		}
+	}
+
+	wp.waitAndDoCleanup( /*lock=*/ false)
 
 	return nil
 }
@@ -115,11 +131,14 @@ func (wp *WorkerPool) Wait() error {
 	return wp.workers[0].Wait()
 }
 
-func (wp *WorkerPool) waitAndDoCleanup() {
+func (wp *WorkerPool) waitAndDoCleanup(lock bool) {
 	wp.Wait()
 
-	wp.m.Lock()
+	if lock {
+		wp.m.Lock()
+		defer wp.m.Unlock()
+	}
+
 	close(wp.outputChannel)
 	wp.outputChannel = nil
-	wp.m.Unlock()
 }
