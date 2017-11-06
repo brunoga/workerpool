@@ -49,9 +49,13 @@ func main() {
 		panic(err)
 	}
 
-	// WorkerPool input is the channel where numbers will be sent to.
+	// Use an input channel adapter to convert the uint64 channel returned
+	// by generateSequence() into an interface{} channel, required by the
+	// WorkerPool.
 	interfaceChannel, err := worker.InputChannelAdapter(
 		generateSequence(*flagMaxNumber))
+
+	// WorkerPool input is the adapted sequence channel.
 	err = workerPool.SetInputChannel(interfaceChannel)
 	if err != nil {
 		panic(err)
