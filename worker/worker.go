@@ -9,6 +9,7 @@ import (
 var (
 	// Errors.
 	ErrAlreadyStarted   = errors.New("worker already started")
+	ErrFinished         = errors.New("worker exited cleanly")
 	ErrNilContext       = errors.New("context must not be nil")
 	ErrNilInputChannel  = errors.New("input channel must not be nil")
 	ErrNilOutputChannel = errors.New("output channel must not be nil")
@@ -94,6 +95,8 @@ func (w *Worker) GetInputChannel() (chan<- interface{}, error) {
 		w.internalInputChannel = true
 	}
 
+	w.waitError = nil
+
 	return w.inputChannel, nil
 }
 
@@ -113,6 +116,8 @@ func (w *Worker) SetInputChannel(inputChannel chan interface{}) error {
 
 	w.inputChannel = inputChannel
 
+	w.waitError = nil
+
 	return nil
 }
 
@@ -131,6 +136,8 @@ func (w *Worker) GetOutputChannel() (<-chan interface{}, error) {
 	if w.outputChannel == nil {
 		w.outputChannel = make(chan interface{})
 	}
+
+	w.waitError = nil
 
 	return w.outputChannel, nil
 }
@@ -157,6 +164,8 @@ func (w *Worker) SetOutputChannel(outputChannel chan interface{}) error {
 	w.outputChannel = outputChannel
 	w.externalOutputChannel = true
 
+	w.waitError = nil
+
 	return nil
 }
 
@@ -169,6 +178,8 @@ func (w *Worker) AddToWaitGroup(wg *sync.WaitGroup) error {
 	}
 
 	w.wg = wg
+
+	w.waitError = nil
 
 	return nil
 }
@@ -315,7 +326,12 @@ func (w *Worker) cleanup(ctx context.Context) {
 	w.internalInputChannel = false
 	w.started = false
 
-	w.waitError = ctx.Err()
+	if ctx.Err() == nil {
+		// Worker exited cleanly.
+		w.waitError = ErrFinished
+	} else {
+		w.waitError = ctx.Err()
+	}
 	w.waitWg.Done()
 
 	if w.wg != nil {
