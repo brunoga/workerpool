@@ -3,6 +3,7 @@ package worker
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 )
@@ -204,10 +205,10 @@ func TestWorker_Start_AlreadyStarted(t *testing.T) {
 			return nil, nil
 		})
 
-	oc := make(chan interface{})
-	_ = w.SetOutputChannel(oc)
+	_, _ = w.GetOutputChannel()
 
-	_, _ = w.GetInputChannel()
+	ic := make(chan interface{})
+	_ = w.SetInputChannel(ic)
 
 	_ = w.Start(context.Background())
 
@@ -216,7 +217,7 @@ func TestWorker_Start_AlreadyStarted(t *testing.T) {
 		t.Errorf("Expected ErrAlreadyStarted error. Got %q.", err)
 	}
 
-	close(oc)
+	close(ic)
 }
 
 func TestWorker_GetInputChannel_AlreadyStarted(t *testing.T) {
@@ -225,22 +226,22 @@ func TestWorker_GetInputChannel_AlreadyStarted(t *testing.T) {
 			return nil, nil
 		})
 
-	oc := make(chan interface{})
-	_ = w.SetOutputChannel(oc)
+	_, _ = w.GetOutputChannel()
 
-	_, _ = w.GetInputChannel()
+	ic1 := make(chan interface{})
+	_ = w.SetInputChannel(ic1)
 
 	_ = w.Start(context.Background())
 
-	ic, err := w.GetInputChannel()
+	ic2, err := w.GetInputChannel()
 	if err != ErrAlreadyStarted {
 		t.Errorf("Expected ErrAlreadyStarted error. Got %q.", err)
 	}
-	if ic != nil {
+	if ic2 != nil {
 		t.Errorf("Expected nil input channel")
 	}
 
-	close(oc)
+	close(ic1)
 }
 
 func TestWorker_SetInputChannel_AlreadyStarted(t *testing.T) {
@@ -249,20 +250,19 @@ func TestWorker_SetInputChannel_AlreadyStarted(t *testing.T) {
 			return nil, nil
 		})
 
-	oc := make(chan interface{})
-	_ = w.SetOutputChannel(oc)
+	_, _ = w.GetOutputChannel()
 
-	_, _ = w.GetInputChannel()
+	ic := make(chan interface{})
+	_ = w.SetInputChannel(ic)
 
 	_ = w.Start(context.Background())
 
-	ic := make(chan interface{})
 	err := w.SetInputChannel(ic)
 	if err != ErrAlreadyStarted {
 		t.Errorf("Expected ErrAlreadyStarted error. Got %q.", err)
 	}
 
-	close(oc)
+	close(ic)
 }
 
 func TestWorker_GetOutputChannel_AlreadyStarted(t *testing.T) {
@@ -274,7 +274,8 @@ func TestWorker_GetOutputChannel_AlreadyStarted(t *testing.T) {
 	oc1 := make(chan interface{})
 	_ = w.SetOutputChannel(oc1)
 
-	_, _ = w.GetInputChannel()
+	ic := make(chan interface{})
+	_ = w.SetInputChannel(ic)
 
 	_ = w.Start(context.Background())
 
@@ -287,6 +288,7 @@ func TestWorker_GetOutputChannel_AlreadyStarted(t *testing.T) {
 	}
 
 	close(oc1)
+	close(ic)
 }
 
 func TestWorker_SetOutputChannel_AlreadyStarted(t *testing.T) {
@@ -295,20 +297,70 @@ func TestWorker_SetOutputChannel_AlreadyStarted(t *testing.T) {
 			return nil, nil
 		})
 
-	oc1 := make(chan interface{})
-	_ = w.SetOutputChannel(oc1)
+	oc := make(chan interface{})
+	_ = w.SetOutputChannel(oc)
 
-	_, _ = w.GetInputChannel()
+	ic := make(chan interface{})
+	_ = w.SetInputChannel(ic)
 
 	_ = w.Start(context.Background())
 
-	oc2 := make(chan interface{})
-	err := w.SetOutputChannel(oc2)
+	err := w.SetOutputChannel(oc)
 	if err != ErrAlreadyStarted {
 		t.Errorf("Expected ErrAlreadyStarted error. Got %q.", err)
 	}
 
-	close(oc1)
+	close(oc)
+	close(ic)
+}
+
+func TestWorker_AddToWaitGroup_AlreadyStarted(t *testing.T) {
+	w, _ := New(
+		func(interface{}, context.Context) (interface{}, error) {
+			return nil, nil
+		})
+
+	_, _ = w.GetOutputChannel()
+
+	ic := make(chan interface{})
+	_ = w.SetInputChannel(ic)
+
+	_ = w.Start(context.Background())
+
+	var wg sync.WaitGroup
+	err := w.AddToWaitGroup(&wg)
+	if err != ErrAlreadyStarted {
+		t.Errorf("Expected ErrAlreadyStarted error. Got %q.", err)
+	}
+
+	close(ic)
+}
+
+func TestWorker_AddToWaitGroup_Success(t *testing.T) {
+	w, _ := New(
+		func(interface{}, context.Context) (interface{}, error) {
+			return nil, nil
+		})
+
+	_, _ = w.GetOutputChannel()
+
+	ic := make(chan interface{})
+	_ = w.SetInputChannel(ic)
+
+	var wg sync.WaitGroup
+	err := w.AddToWaitGroup(&wg)
+	if err != nil {
+		t.Errorf("Expected nil error. Got %v.", err)
+	}
+
+	_ = w.Start(context.Background())
+
+	go func() {
+		time.Sleep(1 * time.Millisecond)
+		close(ic)
+	}()
+
+	wg.Wait()
 }
 
 func TestWorker_Stop_NotStarted(t *testing.T) {
@@ -492,5 +544,77 @@ func TestWorker_WorkerFuncSuccess(t *testing.T) {
 	err := w.Wait()
 	if err != nil {
 		t.Errorf("Expected nil error. Got %q.", err)
+	}
+}
+
+func TestWorker_WorkerFuncSuccess_MultipleWorkers(t *testing.T) {
+	w1, _ := New(
+		func(interface{}, context.Context) (interface{}, error) {
+			time.Sleep(1 * time.Millisecond)
+			return "test result", nil
+		})
+
+	w2, _ := New(
+		func(interface{}, context.Context) (interface{}, error) {
+			time.Sleep(1 * time.Millisecond)
+			return "test result", nil
+		})
+
+	ic := make(chan interface{})
+	_ = w1.SetInputChannel(ic)
+	_ = w2.SetInputChannel(ic)
+
+	oc := make(chan interface{})
+	_ = w1.SetOutputChannel(oc)
+	_ = w2.SetOutputChannel(oc)
+
+	var wg sync.WaitGroup
+	_ = w1.AddToWaitGroup(&wg)
+	_ = w2.AddToWaitGroup(&wg)
+
+	ctx := context.Background()
+	_ = w1.Start(ctx)
+	_ = w2.Start(ctx)
+
+	go func() {
+		for i := 0; i < 10; i++ {
+			result := <-oc
+
+			r, ok := result.(string)
+			if !ok {
+				t.Errorf("Expected string. Got %t.", result)
+			}
+
+			if r != "test result" {
+				t.Errorf("Expected result \"test result\". "+
+					"Got %q.", r)
+			}
+		}
+	}()
+
+	for i := 0; i < 10; i++ {
+		ic <- struct{}{}
+	}
+
+	go func() {
+		time.Sleep(1 * time.Millisecond)
+
+		// Clean shutdown.
+		close(ic)
+	}()
+
+	wg.Wait()
+
+	// At this point workers finished and cleaned up. Wait will say that
+	// workers are not started.
+
+	err := w1.Wait()
+	if err != ErrNotStarted {
+		t.Errorf("Expected ErrNotStarted error. Got %v.", err)
+	}
+
+	err = w2.Wait()
+	if err != ErrNotStarted {
+		t.Errorf("Expected ErrNotStarted error. Got %v.", err)
 	}
 }

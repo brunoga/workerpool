@@ -48,6 +48,8 @@ type Worker struct {
 
 	waitWg    sync.WaitGroup
 	waitError error
+
+	wg *sync.WaitGroup
 }
 
 // New returns a new Worker instance that will use the given workerFunc to
@@ -67,6 +69,7 @@ func New(workerFunc WorkerFunc) (*Worker, error) {
 		false,
 		false,
 		sync.WaitGroup{},
+		nil,
 		nil,
 	}, nil
 }
@@ -157,6 +160,19 @@ func (w *Worker) SetOutputChannel(outputChannel chan interface{}) error {
 	return nil
 }
 
+func (w *Worker) AddToWaitGroup(wg *sync.WaitGroup) error {
+	w.m.Lock()
+	defer w.m.Unlock()
+
+	if w.started {
+		return ErrAlreadyStarted
+	}
+
+	w.wg = wg
+
+	return nil
+}
+
 // Start starts the Worker with the given context. The context can be used to
 // stop Workers with an explicit cancelation or with a timeout and it can also
 // be used to pass required data to the workerFunc.
@@ -187,6 +203,13 @@ func (w *Worker) Start(ctx context.Context) error {
 	w.waitError = nil
 
 	w.waitWg.Add(1)
+
+	if w.wg != nil {
+		// This Worker has been added to an external WaitGroup.
+		// Increment its counter.
+		w.wg.Add(1)
+	}
+
 	go w.workerLoop(cancelCtx)
 
 	w.started = true
@@ -294,4 +317,10 @@ func (w *Worker) cleanup(ctx context.Context) {
 
 	w.waitError = ctx.Err()
 	w.waitWg.Done()
+
+	if w.wg != nil {
+		// This Worker has been added to an external WaitGroup.
+		// Decrement its counter.
+		w.wg.Done()
+	}
 }
