@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/brunoga/workerpool"
+	"github.com/brunoga/workerpool/worker"
 )
 
 var (
@@ -23,7 +24,7 @@ var (
 // between 0 and maxNumber (using the given Rand instance) and send them
 // through the returned channel. It will generate maxNumber numbers and close
 // the channel.
-func generateNumbers(maxNumber uint64, r *rand.Rand) <-chan interface{} {
+func generateNumbers(maxNumber uint64, r *rand.Rand) chan interface{} {
 	// Create output channel.
 	output := make(chan interface{})
 
@@ -90,7 +91,10 @@ func main() {
 	}
 
 	// Get WorkerPool output channel.
-	outputChannel := workerPool.GetOutputChannel()
+	outputChannel, err := workerPool.GetOutputChannel()
+	if err != nil {
+		panic(err)
+	}
 
 	// Start work.
 	err = workerPool.Start(context.Background())
@@ -105,9 +109,9 @@ func main() {
 			// Prime number.
 			n := result.(uint64)
 			fmt.Println(n, "is prime.")
-		case workerpool.WorkerError:
+		case worker.WorkerError:
 			// Error (including non-prime numbers).
-			workerError := result.(workerpool.WorkerError)
+			workerError := result.(worker.WorkerError)
 			if workerError.Error.Error() != "not prime" {
 				// Only print anything if it is an actual error.
 				fmt.Println(workerError)
