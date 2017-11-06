@@ -421,8 +421,8 @@ func TestWorker_Wait_Success(t *testing.T) {
 	}()
 
 	err := w.Wait()
-	if err != ErrFinished {
-		t.Errorf("Expected ErrFinished error. Got %v.", err)
+	if err != nil {
+		t.Errorf("Expected nil error. Got %v.", err)
 	}
 }
 
@@ -542,8 +542,8 @@ func TestWorker_WorkerFuncSuccess(t *testing.T) {
 	close(ic)
 
 	err := w.Wait()
-	if err != ErrFinished {
-		t.Errorf("Expected ErrFinished error. Got %v.", err)
+	if err != nil {
+		t.Errorf("Expected nil error. Got %v.", err)
 	}
 }
 
@@ -609,12 +609,12 @@ func TestWorker_WorkerFuncSuccess_MultipleWorkers(t *testing.T) {
 	// workers are not started.
 
 	err := w1.Wait()
-	if err != ErrFinished {
-		t.Errorf("Expected ErrFinished error. Got %v.", err)
+	if err != nil {
+		t.Errorf("Expected nil error. Got %v.", err)
 	}
 
 	err = w2.Wait()
-	if err != ErrFinished {
-		t.Errorf("Expected ErrFinished error. Got %v.", err)
+	if err != nil {
+		t.Errorf("Expected nil error. Got %v.", err)
 	}
 }

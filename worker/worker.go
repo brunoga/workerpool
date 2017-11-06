@@ -9,12 +9,14 @@ import (
 var (
 	// Errors.
 	ErrAlreadyStarted   = errors.New("worker already started")
-	ErrFinished         = errors.New("worker exited cleanly")
 	ErrNilContext       = errors.New("context must not be nil")
 	ErrNilInputChannel  = errors.New("input channel must not be nil")
 	ErrNilOutputChannel = errors.New("output channel must not be nil")
 	ErrNilWorkerFunc    = errors.New("worker function must not be nil")
 	ErrNotStarted       = errors.New("worker not started")
+
+	// Internal errors.
+	errFinished = errors.New("worker exited cleanly")
 )
 
 // WorkerFunc is the function type that is used by the Worker to process items.
@@ -242,12 +244,19 @@ func (w *Worker) Stop() error {
 	return nil
 }
 
-// Wait blocks until the Worker completes its work.
+// Wait blocks until the Worker completes its work. It returns a nil error when // the Worker finished its work cleanly or a non-nil error to indicate failure
+// (including earlier termination due to deadline exceeded or cancellation).
 func (w *Worker) Wait() error {
 	w.m.Lock()
 	if w.waitError != nil {
 		// Worker finished and was not restarted. Simply return last
 		// error.
+		if w.waitError == errFinished {
+			// Change errFinished to nil.
+			w.m.Unlock()
+			return nil
+		}
+
 		w.m.Unlock()
 		return w.waitError
 	}
@@ -258,6 +267,11 @@ func (w *Worker) Wait() error {
 	w.m.Unlock()
 
 	w.waitWg.Wait()
+
+	if w.waitError == errFinished {
+		// Change errFinished to nil.
+		return nil
+	}
 
 	return w.waitError
 }
@@ -328,7 +342,7 @@ func (w *Worker) cleanup(ctx context.Context) {
 
 	if ctx.Err() == nil {
 		// Worker exited cleanly.
-		w.waitError = ErrFinished
+		w.waitError = errFinished
 	} else {
 		w.waitError = ctx.Err()
 	}
