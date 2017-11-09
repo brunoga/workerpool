@@ -1,11 +1,12 @@
 package worker
 
 import (
-	"context"
 	"fmt"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/brunoga/context"
 )
 
 func TestWorker_New_NilWorkerFunc(t *testing.T) {

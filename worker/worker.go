@@ -1,9 +1,10 @@
 package worker
 
 import (
-	"context"
 	"errors"
 	"sync"
+
+	"github.com/brunoga/context"
 )
 
 var (

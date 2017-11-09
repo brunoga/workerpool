@@ -1,10 +1,10 @@
 package workerpool
 
 import (
-	"context"
 	"errors"
 	"sync"
 
+	"github.com/brunoga/context"
 	"github.com/brunoga/workerpool/worker"
 )
 

@@ -1,11 +1,11 @@
 package workerpool
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
 
+	"github.com/brunoga/context"
 	"github.com/brunoga/workerpool/worker"
 )
 
