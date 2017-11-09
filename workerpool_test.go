@@ -145,76 +145,6 @@ func TestWorkerPool_Start_AlreadyStarted(t *testing.T) {
 	}
 }
 
-func TestWorkerPool_Stop_NotStarted(t *testing.T) {
-	wp, _ := New(
-		func(interface{}, context.Context) (interface{}, error) {
-			return nil, nil
-		}, 2)
-
-	err := wp.Stop()
-	if err != worker.ErrNotStarted {
-		t.Errorf("Expected ErrNotStarted error. Got %v.", err)
-	}
-}
-
-func TestWorker_Stop_Success(t *testing.T) {
-	wp, _ := New(
-		func(interface{}, context.Context) (interface{}, error) {
-			return nil, nil
-		}, 2)
-
-	_, _ = wp.GetOutputChannel()
-	_ = wp.SetInputChannel(make(chan interface{}))
-	_ = wp.Start(context.Background())
-
-	err := wp.Stop()
-	if err != nil {
-		t.Errorf("Expected nil error. Got %v.", err)
-	}
-
-	err = wp.Wait()
-	if err != context.Canceled {
-		t.Errorf("Expected Canceled error. Got %v.", err)
-	}
-}
-
-func TestWorkerPool_Wait_NotStarted(t *testing.T) {
-	wp, _ := New(
-		func(interface{}, context.Context) (interface{}, error) {
-			return nil, nil
-		}, 1)
-
-	_ = wp.SetInputChannel(make(chan interface{}))
-	_, _ = wp.GetOutputChannel()
-
-	err := wp.Wait()
-	if err != worker.ErrNotStarted {
-		t.Errorf("Expected ErrNotStarted error. Got %q.", err)
-	}
-}
-
-func TestWorkerPool_Wait_Success(t *testing.T) {
-	wp, _ := New(
-		func(interface{}, context.Context) (interface{}, error) {
-			return nil, nil
-		}, 1)
-
-	_ = wp.SetInputChannel(make(chan interface{}))
-	_, _ = wp.GetOutputChannel()
-
-	ctx, cancelFunc := context.WithTimeout(context.Background(),
-		1*time.Millisecond)
-	defer cancelFunc()
-
-	_ = wp.Start(ctx)
-
-	err := wp.Wait()
-	if err != context.DeadlineExceeded {
-		t.Errorf("Expected context.DeadlineExceeded error. Got %q.",
-			err)
-	}
-}
-
 func TestWorkerPool_WorkerFuncError(t *testing.T) {
 	wp, _ := New(
 		func(interface{}, context.Context) (interface{}, error) {
@@ -226,7 +156,8 @@ func TestWorkerPool_WorkerFuncError(t *testing.T) {
 
 	oc, _ := wp.GetOutputChannel()
 
-	_ = wp.Start(context.Background())
+	ctx := context.Background()
+	_ = wp.Start(ctx)
 
 	go func() {
 		result := <-oc
@@ -247,7 +178,7 @@ func TestWorkerPool_WorkerFuncError(t *testing.T) {
 	// Clean shutdown.
 	close(ic)
 
-	wp.Wait()
+	ctx.Wait()
 }
 
 func TestWorkerPool_WorkerFuncSuccess(t *testing.T) {
@@ -262,7 +193,8 @@ func TestWorkerPool_WorkerFuncSuccess(t *testing.T) {
 
 	oc, _ := wp.GetOutputChannel()
 
-	_ = wp.Start(context.Background())
+	ctx := context.Background()
+	_ = wp.Start(ctx)
 
 	go func() {
 		for i := 0; i < 10; i++ {
@@ -287,7 +219,9 @@ func TestWorkerPool_WorkerFuncSuccess(t *testing.T) {
 	// Clean shutdown.
 	close(ic)
 
-	err := wp.Wait()
+	ctx.Wait()
+
+	err := ctx.Err()
 	if err != nil {
 		t.Errorf("Expected nil error. Got %q.", err)
 	}

@@ -2,7 +2,6 @@ package worker
 
 import (
 	"fmt"
-	"sync"
 	"testing"
 	"time"
 
@@ -315,161 +314,6 @@ func TestWorker_SetOutputChannel_AlreadyStarted(t *testing.T) {
 	close(ic)
 }
 
-func TestWorker_AddToWaitGroup_AlreadyStarted(t *testing.T) {
-	w, _ := New(
-		func(interface{}, context.Context) (interface{}, error) {
-			return nil, nil
-		})
-
-	_, _ = w.GetOutputChannel()
-
-	ic := make(chan interface{})
-	_ = w.SetInputChannel(ic)
-
-	_ = w.Start(context.Background())
-
-	var wg sync.WaitGroup
-	err := w.AddToWaitGroup(&wg)
-	if err != ErrAlreadyStarted {
-		t.Errorf("Expected ErrAlreadyStarted error. Got %q.", err)
-	}
-
-	close(ic)
-}
-
-func TestWorker_AddToWaitGroup_Success(t *testing.T) {
-	w, _ := New(
-		func(interface{}, context.Context) (interface{}, error) {
-			return nil, nil
-		})
-
-	_, _ = w.GetOutputChannel()
-
-	ic := make(chan interface{})
-	_ = w.SetInputChannel(ic)
-
-	var wg sync.WaitGroup
-	err := w.AddToWaitGroup(&wg)
-	if err != nil {
-		t.Errorf("Expected nil error. Got %v.", err)
-	}
-
-	_ = w.Start(context.Background())
-
-	go func() {
-		time.Sleep(1 * time.Millisecond)
-		close(ic)
-	}()
-
-	wg.Wait()
-}
-
-func TestWorker_Stop_NotStarted(t *testing.T) {
-	w, _ := New(
-		func(interface{}, context.Context) (interface{}, error) {
-			return nil, nil
-		})
-
-	err := w.Stop()
-	if err != ErrNotStarted {
-		t.Errorf("Expected ErrNotStarted error. Got %q.", err)
-	}
-}
-
-func TestWorker_Stop_Success(t *testing.T) {
-	w, _ := New(
-		func(interface{}, context.Context) (interface{}, error) {
-			return nil, nil
-		})
-
-	_, _ = w.GetOutputChannel()
-	_, _ = w.GetInputChannel()
-	_ = w.Start(context.Background())
-
-	err := w.Stop()
-	if err != nil {
-		t.Errorf("Expected nil error. Got %q.", err)
-	}
-}
-
-func TestWorker_Wait_NotStarted(t *testing.T) {
-	w, _ := New(
-		func(interface{}, context.Context) (interface{}, error) {
-			return nil, nil
-		})
-
-	err := w.Wait()
-	if err != ErrNotStarted {
-		t.Errorf("Expected ErrNotStarted error. Got %q.", err)
-	}
-}
-
-func TestWorker_Wait_Success(t *testing.T) {
-	w, _ := New(
-		func(interface{}, context.Context) (interface{}, error) {
-			return nil, nil
-		})
-
-	_, _ = w.GetOutputChannel()
-
-	ic := make(chan interface{})
-	_ = w.SetInputChannel(ic)
-	_ = w.Start(context.Background())
-
-	go func() {
-		time.Sleep(1 * time.Millisecond)
-		close(ic)
-	}()
-
-	err := w.Wait()
-	if err != nil {
-		t.Errorf("Expected nil error. Got %v.", err)
-	}
-}
-
-func TestWorker_Wait_Cancelation(t *testing.T) {
-	w, _ := New(
-		func(interface{}, context.Context) (interface{}, error) {
-			return nil, nil
-		})
-
-	_, _ = w.GetOutputChannel()
-	_, _ = w.GetInputChannel()
-	_ = w.Start(context.Background())
-
-	go func() {
-		time.Sleep(1 * time.Millisecond)
-		w.Stop()
-	}()
-
-	err := w.Wait()
-	if err != context.Canceled {
-		t.Errorf("Expected context.Canceled error. Got %q.", err)
-	}
-}
-
-func TestWorker_Wait_DeadlineExceeded(t *testing.T) {
-	w, _ := New(
-		func(interface{}, context.Context) (interface{}, error) {
-			return nil, nil
-		})
-
-	_, _ = w.GetOutputChannel()
-	_, _ = w.GetInputChannel()
-
-	ctx, cancel := context.WithDeadline(context.Background(),
-		time.Now().Add(1*time.Millisecond))
-	defer cancel()
-
-	_ = w.Start(ctx)
-
-	err := w.Wait()
-	if err != context.DeadlineExceeded {
-		t.Errorf("Expected context.DeadlineExceeded error. Got %q.",
-			err)
-	}
-}
-
 func TestWorker_WorkerFuncError(t *testing.T) {
 	w, _ := New(
 		func(interface{}, context.Context) (interface{}, error) {
@@ -481,7 +325,8 @@ func TestWorker_WorkerFuncError(t *testing.T) {
 
 	oc, _ := w.GetOutputChannel()
 
-	_ = w.Start(context.Background())
+	ctx := context.Background()
+	_ = w.Start(ctx)
 
 	go func() {
 		result := <-oc
@@ -502,7 +347,7 @@ func TestWorker_WorkerFuncError(t *testing.T) {
 	// Clean shutdown.
 	close(ic)
 
-	w.Wait()
+	ctx.Wait()
 }
 
 func TestWorker_WorkerFuncSuccess(t *testing.T) {
@@ -517,7 +362,8 @@ func TestWorker_WorkerFuncSuccess(t *testing.T) {
 
 	oc, _ := w.GetOutputChannel()
 
-	_ = w.Start(context.Background())
+	ctx := context.Background()
+	_ = w.Start(ctx)
 
 	go func() {
 		for i := 0; i < 10; i++ {
@@ -542,7 +388,9 @@ func TestWorker_WorkerFuncSuccess(t *testing.T) {
 	// Clean shutdown.
 	close(ic)
 
-	err := w.Wait()
+	ctx.Wait()
+
+	err := ctx.Err()
 	if err != nil {
 		t.Errorf("Expected nil error. Got %v.", err)
 	}
@@ -568,10 +416,6 @@ func TestWorker_WorkerFuncSuccess_MultipleWorkers(t *testing.T) {
 	oc := make(chan interface{})
 	_ = w1.SetOutputChannel(oc)
 	_ = w2.SetOutputChannel(oc)
-
-	var wg sync.WaitGroup
-	_ = w1.AddToWaitGroup(&wg)
-	_ = w2.AddToWaitGroup(&wg)
 
 	ctx := context.Background()
 	_ = w1.Start(ctx)
@@ -604,17 +448,12 @@ func TestWorker_WorkerFuncSuccess_MultipleWorkers(t *testing.T) {
 		close(ic)
 	}()
 
-	wg.Wait()
+	ctx.Wait()
 
 	// At this point workers finished and cleaned up. Wait will say that
 	// workers are not started.
 
-	err := w1.Wait()
-	if err != nil {
-		t.Errorf("Expected nil error. Got %v.", err)
-	}
-
-	err = w2.Wait()
+	err := ctx.Err()
 	if err != nil {
 		t.Errorf("Expected nil error. Got %v.", err)
 	}

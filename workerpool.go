@@ -19,8 +19,6 @@ type WorkerPool struct {
 	m             sync.Mutex
 	workers       []*worker.Worker
 	outputChannel chan interface{}
-
-	wg sync.WaitGroup
 }
 
 // New returns a new WorkerPool instance that will use the given workerFunc to
@@ -43,7 +41,6 @@ func New(workerFunc worker.WorkerFunc, numWorkers int) (*WorkerPool, error) {
 		sync.Mutex{},
 		workers,
 		nil,
-		sync.WaitGroup{},
 	}, nil
 }
 
@@ -90,50 +87,30 @@ func (wp *WorkerPool) Start(ctx context.Context) error {
 	wp.m.Lock()
 	defer wp.m.Unlock()
 
-	for _, w := range wp.workers {
-		err := w.AddToWaitGroup(&wp.wg)
-		if err != nil {
-			return err
-		}
+	workerCtx, cancel := context.WithCancel(ctx)
 
-		err = w.Start(ctx)
+	for _, w := range wp.workers {
+		err := w.Start(context.Child(workerCtx))
 		if err != nil {
 			return err
 		}
 	}
 
-	go wp.waitAndDoCleanup()
+	go wp.waitAndDoCleanup(ctx, workerCtx, cancel)
 
 	return nil
 }
 
-func (wp *WorkerPool) Stop() error {
-	wp.m.Lock()
-	defer wp.m.Unlock()
+func (wp *WorkerPool) waitAndDoCleanup(ctx, workerCtx context.Context,
+	cancel context.CancelFunc) {
+	workerCtx.Wait()
 
-	for _, w := range wp.workers {
-		err := w.Stop()
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// Wait blocks until the WorkerPool completes all its work.
-func (wp *WorkerPool) Wait() error {
-	wp.wg.Wait()
-
-	// Use first worker Wait() result as the WorkerPool wait result.
-	return wp.workers[0].Wait()
-}
-
-func (wp *WorkerPool) waitAndDoCleanup() {
-	wp.Wait()
+	cancel()
 
 	wp.m.Lock()
 	close(wp.outputChannel)
 	wp.outputChannel = nil
 	wp.m.Unlock()
+
+	ctx.Done()
 }

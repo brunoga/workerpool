@@ -41,7 +41,6 @@ type WorkerError struct {
 // channel.
 type Worker struct {
 	workerFunc WorkerFunc
-	cancelFunc context.CancelFunc
 
 	m                     sync.Mutex
 	inputChannel          chan interface{}
@@ -49,11 +48,6 @@ type Worker struct {
 	externalOutputChannel bool
 	internalInputChannel  bool
 	started               bool
-
-	waitWg    sync.WaitGroup
-	waitError error
-
-	wg *sync.WaitGroup
 }
 
 // New returns a new Worker instance that will use the given workerFunc to
@@ -65,16 +59,12 @@ func New(workerFunc WorkerFunc) (*Worker, error) {
 
 	return &Worker{
 		workerFunc,
-		nil,
 		sync.Mutex{},
 		nil,
 		nil,
 		false,
 		false,
 		false,
-		sync.WaitGroup{},
-		nil,
-		nil,
 	}, nil
 }
 
@@ -98,8 +88,6 @@ func (w *Worker) GetInputChannel() (chan<- interface{}, error) {
 		w.internalInputChannel = true
 	}
 
-	w.waitError = nil
-
 	return w.inputChannel, nil
 }
 
@@ -119,8 +107,6 @@ func (w *Worker) SetInputChannel(inputChannel chan interface{}) error {
 
 	w.inputChannel = inputChannel
 
-	w.waitError = nil
-
 	return nil
 }
 
@@ -139,8 +125,6 @@ func (w *Worker) GetOutputChannel() (<-chan interface{}, error) {
 	if w.outputChannel == nil {
 		w.outputChannel = make(chan interface{})
 	}
-
-	w.waitError = nil
 
 	return w.outputChannel, nil
 }
@@ -166,23 +150,6 @@ func (w *Worker) SetOutputChannel(outputChannel chan interface{}) error {
 
 	w.outputChannel = outputChannel
 	w.externalOutputChannel = true
-
-	w.waitError = nil
-
-	return nil
-}
-
-func (w *Worker) AddToWaitGroup(wg *sync.WaitGroup) error {
-	w.m.Lock()
-	defer w.m.Unlock()
-
-	if w.started {
-		return ErrAlreadyStarted
-	}
-
-	w.wg = wg
-
-	w.waitError = nil
 
 	return nil
 }
@@ -210,71 +177,11 @@ func (w *Worker) Start(ctx context.Context) error {
 		return ErrNilInputChannel
 	}
 
-	cancelCtx, cancelFunc := context.WithCancel(ctx)
-
-	w.cancelFunc = cancelFunc
-
-	w.waitError = nil
-
-	w.waitWg.Add(1)
-
-	if w.wg != nil {
-		// This Worker has been added to an external WaitGroup.
-		// Increment its counter.
-		w.wg.Add(1)
-	}
-
-	go w.workerLoop(cancelCtx)
+	go w.workerLoop(ctx)
 
 	w.started = true
 
 	return nil
-}
-
-// Stop stops the Worker.
-func (w *Worker) Stop() error {
-	w.m.Lock()
-	defer w.m.Unlock()
-
-	if !w.started {
-		return ErrNotStarted
-	}
-
-	w.cancelFunc()
-
-	return nil
-}
-
-// Wait blocks until the Worker completes its work. It returns a nil error when // the Worker finished its work cleanly or a non-nil error to indicate failure
-// (including earlier termination due to deadline exceeded or cancellation).
-func (w *Worker) Wait() error {
-	w.m.Lock()
-	if w.waitError != nil {
-		// Worker finished and was not restarted. Simply return last
-		// error.
-		if w.waitError == errFinished {
-			// Change errFinished to nil.
-			w.m.Unlock()
-			return nil
-		}
-
-		w.m.Unlock()
-		return w.waitError
-	}
-	if !w.started {
-		w.m.Unlock()
-		return ErrNotStarted
-	}
-	w.m.Unlock()
-
-	w.waitWg.Wait()
-
-	if w.waitError == errFinished {
-		// Change errFinished to nil.
-		return nil
-	}
-
-	return w.waitError
 }
 
 func (w *Worker) workerLoop(ctx context.Context) {
@@ -334,24 +241,11 @@ func (w *Worker) cleanup(ctx context.Context) {
 		close(w.inputChannel)
 	}
 
-	w.cancelFunc = nil
 	w.inputChannel = nil
 	w.outputChannel = nil
 	w.externalOutputChannel = false
 	w.internalInputChannel = false
 	w.started = false
 
-	if ctx.Err() == nil {
-		// Worker exited cleanly.
-		w.waitError = errFinished
-	} else {
-		w.waitError = ctx.Err()
-	}
-	w.waitWg.Done()
-
-	if w.wg != nil {
-		// This Worker has been added to an external WaitGroup.
-		// Decrement its counter.
-		w.wg.Done()
-	}
+	ctx.Finished()
 }
