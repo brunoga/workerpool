@@ -137,7 +137,7 @@ func TestWorkerPool_Start_AlreadyStarted(t *testing.T) {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 
-	_ = wp.Start(ctx)
+	_ = wp.Start(context.EnableWait(ctx))
 
 	err := wp.Start(ctx)
 	if err != worker.ErrAlreadyStarted {
@@ -148,6 +148,7 @@ func TestWorkerPool_Start_AlreadyStarted(t *testing.T) {
 func TestWorkerPool_WorkerFuncError(t *testing.T) {
 	wp, _ := New(
 		func(interface{}, context.Context) (interface{}, error) {
+			fmt.Println("HERE")
 			return nil, fmt.Errorf("error test")
 		}, 1)
 
@@ -156,8 +157,11 @@ func TestWorkerPool_WorkerFuncError(t *testing.T) {
 
 	oc, _ := wp.GetOutputChannel()
 
-	ctx := context.Background()
-	_ = wp.Start(ctx)
+	root := context.Background()
+	wpCtx, cancel := context.WithCancel(root)
+	defer cancel()
+
+	_ = wp.Start(context.EnableWait(wpCtx))
 
 	go func() {
 		result := <-oc
@@ -178,7 +182,7 @@ func TestWorkerPool_WorkerFuncError(t *testing.T) {
 	// Clean shutdown.
 	close(ic)
 
-	ctx.Wait()
+	root.WaitForChildren()
 }
 
 func TestWorkerPool_WorkerFuncSuccess(t *testing.T) {
@@ -193,8 +197,11 @@ func TestWorkerPool_WorkerFuncSuccess(t *testing.T) {
 
 	oc, _ := wp.GetOutputChannel()
 
-	ctx := context.Background()
-	_ = wp.Start(ctx)
+	root := context.Background()
+	wpCtx, cancel := context.WithCancel(root)
+	defer cancel()
+
+	_ = wp.Start(context.EnableWait(wpCtx))
 
 	go func() {
 		for i := 0; i < 10; i++ {
@@ -219,9 +226,9 @@ func TestWorkerPool_WorkerFuncSuccess(t *testing.T) {
 	// Clean shutdown.
 	close(ic)
 
-	ctx.Wait()
+	root.WaitForChildren()
 
-	err := ctx.Err()
+	err := wpCtx.Err()
 	if err != nil {
 		t.Errorf("Expected nil error. Got %q.", err)
 	}

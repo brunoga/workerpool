@@ -90,27 +90,25 @@ func (wp *WorkerPool) Start(ctx context.Context) error {
 	workerCtx, cancel := context.WithCancel(ctx)
 
 	for _, w := range wp.workers {
-		err := w.Start(context.Child(workerCtx))
+		err := w.Start(context.EnableWait(workerCtx))
 		if err != nil {
 			return err
 		}
 	}
 
-	go wp.waitAndDoCleanup(ctx, workerCtx, cancel)
+	go wp.waitAndDoCleanup(ctx, cancel)
 
 	return nil
 }
 
-func (wp *WorkerPool) waitAndDoCleanup(ctx, workerCtx context.Context,
+func (wp *WorkerPool) waitAndDoCleanup(ctx context.Context,
 	cancel context.CancelFunc) {
-	workerCtx.Wait()
-
+	ctx.WaitForChildren()
+	ctx.Finished()
 	cancel()
 
 	wp.m.Lock()
 	close(wp.outputChannel)
 	wp.outputChannel = nil
 	wp.m.Unlock()
-
-	ctx.Done()
 }

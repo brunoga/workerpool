@@ -347,7 +347,7 @@ func TestWorker_WorkerFuncError(t *testing.T) {
 	// Clean shutdown.
 	close(ic)
 
-	ctx.Wait()
+	ctx.WaitForChildren()
 }
 
 func TestWorker_WorkerFuncSuccess(t *testing.T) {
@@ -388,7 +388,7 @@ func TestWorker_WorkerFuncSuccess(t *testing.T) {
 	// Clean shutdown.
 	close(ic)
 
-	ctx.Wait()
+	ctx.WaitForChildren()
 
 	err := ctx.Err()
 	if err != nil {
@@ -448,7 +448,7 @@ func TestWorker_WorkerFuncSuccess_MultipleWorkers(t *testing.T) {
 		close(ic)
 	}()
 
-	ctx.Wait()
+	ctx.WaitForChildren()
 
 	// At this point workers finished and cleaned up. Wait will say that
 	// workers are not started.
