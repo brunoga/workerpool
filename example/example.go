@@ -1,12 +1,12 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"runtime"
 	"time"
 
+	"github.com/brunoga/context"
 	"github.com/brunoga/workerpool"
 	"github.com/brunoga/workerpool/worker"
 )

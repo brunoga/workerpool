@@ -148,7 +148,6 @@ func TestWorkerPool_Start_AlreadyStarted(t *testing.T) {
 func TestWorkerPool_WorkerFuncError(t *testing.T) {
 	wp, _ := New(
 		func(interface{}, context.Context) (interface{}, error) {
-			fmt.Println("HERE")
 			return nil, fmt.Errorf("error test")
 		}, 1)
 
