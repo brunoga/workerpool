@@ -43,3 +43,31 @@ func TestInputChannelAdapter_Ok(t *testing.T) {
 
 	close(nonInterfaceChannel)
 }
+
+func TestInputChannelAdapter_SameCap(t *testing.T) {
+	nonInterfaceChannel := make(chan int64)
+
+	ic, err := InputChannelAdapter(nonInterfaceChannel)
+	if err != nil {
+		t.Errorf("Expected nil error. Got %q.", err)
+	}
+	if cap(nonInterfaceChannel) != cap(ic) {
+		t.Errorf("Expected cap to be %d. Got %d.",
+			cap(nonInterfaceChannel), cap(ic))
+	}
+
+	close(nonInterfaceChannel)
+
+	nonInterfaceChannel = make(chan int64, 10)
+
+	ic, err = InputChannelAdapter(nonInterfaceChannel)
+	if err != nil {
+		t.Errorf("Expected nil error. Got %q.", err)
+	}
+	if cap(nonInterfaceChannel) != cap(ic) {
+		t.Errorf("Expected cap to be %d. Got %d.",
+			cap(nonInterfaceChannel), cap(ic))
+	}
+
+	close(nonInterfaceChannel)
+}

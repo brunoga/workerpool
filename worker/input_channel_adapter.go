@@ -28,11 +28,11 @@ func InputChannelAdapter(
 		return nil, ErrNotReadableChannel
 	}
 
-	interfaceChannel := make(chan interface{})
+	reflectionValue := reflect.ValueOf(nonInterfaceChannel)
+
+	interfaceChannel := make(chan interface{}, reflectionValue.Cap())
 
 	go func() {
-		reflectionValue := reflect.ValueOf(nonInterfaceChannel)
-
 		for {
 			// Copy items from non interface channel to interface
 			// channel.
